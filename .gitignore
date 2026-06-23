@@ -14,8 +14,10 @@ eggs/
 .installed.cfg
 *.egg
 
-# ─── test folder ──────────────────────────────────────────────────────────────────
+# ─── Others ──────────────────────────────────────────────────────────────────
 test/
+_backup/
+*.ink
 
 # Virtual environments (must be recreated natively on the RPi — never commit)
 venv/
