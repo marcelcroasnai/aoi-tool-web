@@ -1,0 +1,81 @@
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ─── test folder ──────────────────────────────────────────────────────────────────
+test/
+
+# Virtual environments (must be recreated natively on the RPi — never commit)
+venv/
+.venv/
+env/
+ENV/
+
+# ─── Node / frontend ─────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Database (single source of truth — local runtime state, not source) ─────
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+aoi_tool.db*
+
+# ─── Runtime data / generated content ────────────────────────────────────────
+logs/
+*.log
+Docs/ideas.json
+# Local file-cache (L2 JSON disk cache)
+*.cache.json
+cache/
+.cache/
+
+# ─── Environment / secrets ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ─── Local working copies / backups ──────────────────────────────────────────
+*[Kk]opie*
+*copy*
+* - Copy*
+*.bak
+*.orig
+*.tmp
+
+# ─── Notebooks (checkpoints) ─────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── Editors / IDEs ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS cruft ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
