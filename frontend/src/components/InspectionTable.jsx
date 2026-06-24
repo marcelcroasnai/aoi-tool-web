@@ -1,7 +1,10 @@
-// AOI Tool - Inspection Table
+// AOI Tool - Inspection Table — Direction A (calm table + severity rail)
 import { useState } from "react";
-import { SummaryBar, Spinner, Th } from "./shared.jsx";
+import { SummaryBar, Spinner, Th, SmdBand, DensityToggle } from "./shared.jsx";
 import { BaugrupeRow } from "./BaugrupeRow.jsx";
+import { makeTableStyles } from "../constants/tableStyles.js";
+
+const COL_COUNT = 6;
 
 export function InspectionTable({
   currentData, loading, error, inspMode,
@@ -11,6 +14,9 @@ export function InspectionTable({
   const [expandAllBg, setExpandAllBg] = useState(false);
   const [expandAllPp, setExpandAllPp] = useState(false);
   const [search,      setSearch]      = useState("");
+  const [dense,       setDense]       = useState(false);
+
+  const styles = makeTableStyles(t, dense);
 
   const seen = new Set();
   const filteredData = currentData?.filter(bg => {
@@ -134,50 +140,55 @@ export function InspectionTable({
         >
           {expandAllPp ? "▼▼" : "▶▶"} {tr.expandPp}
         </button>
+
+        <div style={{ marginLeft: "auto" }} />
+        <DensityToggle dense={dense} setDense={setDense} t={t} />
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${t.border}` }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", background: t.bgTable }}>
+      <div style={styles.wrap}>
+        <table style={styles.table}>
           <thead>
             <tr>
-              <Th label={tr.colNr}          width={52}  t={t} />
-              <Th label={tr.colSmdLine}     width={100} t={t} />
-              <Th label={tr.colBg}          width={220} t={t} />
-              <Th label={tr.colKunde}       width={120} t={t} />
-              <Th label="Project"           width={160} t={t} />
-              <Th label="Components (I | C)"    width={180} t={t} />
-              <Th label={tr.colFlags}       width={110} t={t} />
-              <Th label="Info"              width={140} t={t} />
+              <Th label={tr.colNr}   width={52}  align="right" t={t} />
+              <Th label={tr.colBg}                              t={t} />
+              <Th label={tr.colKunde} width={110}              t={t} />
+              <Th label="Components"  width={170}              t={t} />
+              <Th label={tr.colFlags} width={110}              t={t} />
+              <Th label="Status"      width={90}  align="right" t={t} />
             </tr>
           </thead>
           <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: t.textMuted, fontSize: 14 }}>
+                <td colSpan={COL_COUNT} style={{ textAlign: "center", padding: 40, color: t.textMuted, fontSize: 14 }}>
                   {tr.noResults}
                 </td>
               </tr>
             ) : (
               filteredData.flatMap((bg, i) => {
                 const prev = filteredData[i - 1];
-                const lineChanged = i > 0 && bg.smd_line && prev.smd_line !== bg.smd_line;
-                const spacer = lineChanged ? (
-                  <tr key={`spacer-${i}`}>
-                    <td colSpan={8} style={{ height: 12, background: "transparent", borderBottom: `1px solid ${t.border}20` }} />
+                const lineChanged = bg.smd_line && (i === 0 || prev?.smd_line !== bg.smd_line);
+                const band = lineChanged
+                  ? <SmdBand key={`smd-${bg.smd_line}-${i}`} line={bg.smd_line} colSpan={COL_COUNT} styles={styles} />
+                  : null;
+                // pretty delimitation: a page-colored gap before every group (from the 2nd on)
+                const gap = i > 0 ? (
+                  <tr key={`gap-${i}`} aria-hidden="true">
+                    <td colSpan={COL_COUNT} style={{ padding: 0, height: dense ? 7 : 12, background: t.bg, borderBottom: "none" }} />
                   </tr>
                 ) : null;
                 return [
-                  spacer,
+                  gap,
+                  band,
                   <BaugrupeRow
                     key={bg.name}
                     bg={bg}
                     index={i}
-                    inspType={inspMode}
                     t={t} tr={tr}
                     onOpenViewer={onOpenViewer}
                     forceExpandBg={expandAllBg}
-                    forceExpandPp={expandAllPp}
+                    styles={styles}
                   />,
                 ].filter(Boolean);
               })

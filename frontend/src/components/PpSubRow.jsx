@@ -1,15 +1,9 @@
-// AOI Tool - PP Sub Row — no rowspan, stable layout
-// Receives nrCell from BaugrupeRow (rendered empty cell with group background)
+// AOI Tool - PP Sub Row — Direction A (tree detail row, shared rail)
+// Receives railCell (the empty rail/Nr <td>) from BaugrupeRow.
 import { useState, useEffect } from "react";
 import { API_BASE } from "../api.js";
-import { ErrorBadge, HinweisBlock } from "./shared.jsx";
-
-const CELL = {
-  padding: "8px 12px",
-  verticalAlign: "middle",
-  fontSize: 13,
-  borderRight: "1px solid rgba(128,128,128,0.12)",
-};
+import { ErrorBadge, HinweisBlock, StatusPill } from "./shared.jsx";
+import { withAlpha, SIDE_COLOR } from "../constants/tableStyles.js";
 
 // ─── PP Detail Panel ───────────────────────────────────────────────────────────
 function PpDetailPanel({ pp, t, tr, onClose }) {
@@ -175,14 +169,14 @@ function PpDetailPanel({ pp, t, tr, onClose }) {
 }
 
 // ─── PpThumbnail ──────────────────────────────────────────────────────────────
-export function PpThumbnail({ ppName, customSrc, onClick, t, tr }) {
+export function PpThumbnail({ ppName, customSrc, onClick, t, tr, w = 120, h = 80 }) {
   const [loaded,   setLoaded]   = useState(false);
   const [imgError, setImgError] = useState(false);
   const src = customSrc ?? `${API_BASE}/api/image/${encodeURIComponent(ppName)}?type=hr`;
 
   if (imgError) return (
     <div style={{
-      width: 120, height: 80, borderRadius: 6,
+      width: w, height: h, borderRadius: 6,
       background: t.border, border: `1px solid ${t.borderInput}`,
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: 20, color: t.textMuted, cursor: "default", flexShrink: 0,
@@ -191,7 +185,7 @@ export function PpThumbnail({ ppName, customSrc, onClick, t, tr }) {
 
   return (
     <div onClick={onClick} style={{
-      width: 120, height: 80, borderRadius: 6,
+      width: w, height: h, borderRadius: 6,
       border: `1px solid ${t.borderInput}`,
       overflow: "hidden", cursor: "pointer",
       background: t.bgInput, flexShrink: 0,
@@ -213,27 +207,25 @@ export function PpThumbnail({ ppName, customSrc, onClick, t, tr }) {
 }
 
 // ─── PpSubRow ─────────────────────────────────────────────────────────────────
-export function PpSubRow({ pp, isLast, nrCell, t, tr, onOpenViewer, isUrgent, accent, lpImageSrc }) {
+export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, styles, lpImageSrc }) {
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const colors     = t.rowColors[pp.row_color] || t.rowColors.green;
   const hasErrors  = pp.errors?.length > 0;
   const hasPm      = pp.pm_dict && Object.keys(pp.pm_dict).length > 0;
   const hasHinweis = !!pp.hinweis;
   const hasDetails = hasPm || hasHinweis || hasErrors;
-  const sideColor  = pp.side === "BOT" ? "#f97316" : "#38bdf8";
-
-  const PP_BG = {
-    green:  "rgba(34,197,94,0.04)",
-    yellow: "rgba(234,179,8,0.05)",
-    orange: "rgba(249,115,22,0.05)",
-    red:    "rgba(239,68,68,0.05)",
-  };
-  const ppBg = PP_BG[pp.row_color] || PP_BG.green;
+  const sideColor  = SIDE_COLOR[pp.side] || SIDE_COLOR.TOP;
+  const sideCount  = pp.side === "BOT" ? pp.cad_bot_count : pp.cad_top_count;
 
   const haranSrc   = `${API_BASE}/api/image/${encodeURIComponent(pp.name)}?type=hr`;
   const lpSrc      = lpImageSrc ?? null;
   const canCompare = !!lpSrc;
+
+  const thumbW  = styles.dense ? 92 : 120;
+  const thumbH  = styles.dense ? 62 : 80;
+  const clusterGap = styles.dense ? 18 : 28;          // space between badge / name / images
+  const padY    = styles.dense ? 5 : 7;
+  const stop    = (fn) => (e) => { e.stopPropagation(); fn(e); };
 
   return (
     <>
@@ -241,142 +233,108 @@ export function PpSubRow({ pp, isLast, nrCell, t, tr, onOpenViewer, isUrgent, ac
         <PpDetailPanel pp={pp} t={t} tr={tr} onClose={() => setPanelOpen(false)} />
       )}
 
-      {/* PP main row */}
+      {/* ── PP detail row (real column cells so values align with the BG row) ── */}
       <tr
         onClick={() => hasDetails && setPanelOpen(true)}
         style={{
-          background: ppBg,
-          borderBottom: isLast
-            ? `1px solid ${accent}30`
-            : `1px solid rgba(128,128,128,0.08)`,
-          borderLeft: `4px solid ${sideColor}40`,
+          background: "transparent",
+          borderBottom: `1px solid ${styles.divider}`,
           cursor: hasDetails ? "pointer" : "default",
         }}
-        onMouseEnter={e => e.currentTarget.style.filter = "brightness(0.94)"}
-        onMouseLeave={e => e.currentTarget.style.filter = ""}
+        onMouseEnter={e => (e.currentTarget.style.background = t.expandBg)}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
-        {/* Nr — empty cell with group background */}
-        {nrCell}
+        {railCell}
 
-        {/* SMD Line → side badge */}
-        <td style={{ ...CELL, width: 100, textAlign: "center" }}>
-          <span style={{
-            padding: "3px 10px", borderRadius: 6, fontSize: 12, fontWeight: 700,
-            background: sideColor + "15", color: sideColor,
-            border: `1px solid ${sideColor}35`, fontFamily: "monospace",
-          }}>{pp.side}</span>
-        </td>
+        {/* Baugruppe + Kunde span: connector · side badge · name/CLI · images */}
+        <td colSpan={2} style={{ ...styles.cell, paddingTop: padY, paddingBottom: padY }}>
+          <div style={{ display: "flex", alignItems: "center", gap: clusterGap, borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
 
-        {/* Assembly → PP name + CLI */}
-        <td style={{ ...CELL }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8 }}>
-            <div style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 13, color: t.text }}>
-              {pp.name}
+            <span style={{
+              padding: "2px 9px", borderRadius: 6, fontSize: 12, fontWeight: 700, flexShrink: 0,
+              background: sideColor + "1f", color: sideColor,
+              border: `1px solid ${sideColor}45`, fontFamily: "'IBM Plex Mono', monospace",
+            }}>{pp.side}</span>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 170, flexShrink: 0 }}>
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: t.text }}>
+                {pp.name}
+              </span>
+              {pp.cli && (
+                <span style={{
+                  padding: "1px 7px", borderRadius: 8, fontSize: 11, width: "fit-content",
+                  background: t.cliChip.bg, color: t.cliChip.color,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                }}>{pp.cli}</span>
+              )}
             </div>
-            {pp.cli && (
-              <span style={{
-                padding: "2px 8px", borderRadius: 8, fontSize: 11,
-                background: t.cliChip.bg, color: t.cliChip.color,
-                fontFamily: "monospace", display: "inline-block", width: "fit-content",
-              }}>{pp.cli}</span>
-            )}
-          </div>
-        </td>
 
-        {/* Customer + Project → LP image, Compare, Haran (merged) */}
-        <td colSpan={2} style={{ ...CELL, width: 280, borderRight: "1px solid rgba(128,128,128,0.12)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {lpSrc ? (
-              <PpThumbnail customSrc={lpSrc} t={t} tr={tr}
-                onClick={e => { e.stopPropagation(); onOpenViewer("single", [{ src: lpSrc, label: tr.viewerLp }]); }}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }} onClick={e => e.stopPropagation()}>
+              {lpSrc ? (
+                <PpThumbnail customSrc={lpSrc} t={t} tr={tr} w={thumbW} h={thumbH}
+                  onClick={stop(() => onOpenViewer("single", [{ src: lpSrc, label: tr.viewerLp }]))}
+                />
+              ) : (
+                <div style={{
+                  width: thumbW, height: thumbH, borderRadius: 6, flexShrink: 0,
+                  background: withAlpha(t.border, 0.25), border: `1px solid ${t.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <span style={{ fontSize: 11, color: t.textMuted }}>LP</span>
+                </div>
+              )}
+
+              {canCompare && (
+                <button
+                  onClick={stop(() => onOpenViewer("compare", [{ src: lpSrc, label: tr.viewerLp }, { src: haranSrc, label: `${tr.viewerHaran} — ${pp.name}` }]))}
+                  style={{
+                    padding: "6px 9px", borderRadius: 6, border: `1px solid ${t.border}`,
+                    background: "transparent", color: t.textMuted, fontSize: 14,
+                    cursor: "pointer", flexShrink: 0, transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.tabActive.bg; e.currentTarget.style.color = t.tabActive.color; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = t.textMuted; }}
+                >⇔</button>
+              )}
+
+              <PpThumbnail ppName={pp.name} t={t} tr={tr} w={thumbW} h={thumbH}
+                onClick={stop(() => onOpenViewer("single", [{ src: haranSrc, label: `${tr.viewerHaran} — ${pp.name}` }]))}
               />
-            ) : (
-              <div style={{
-                width: 120, height: 80, borderRadius: 6, flexShrink: 0,
-                background: t.border + "25", border: `1px solid ${t.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <span style={{ fontSize: 11, color: t.textMuted }}>LP</span>
-              </div>
-            )}
-
-            {canCompare && (
-              <button
-                onClick={e => { e.stopPropagation(); onOpenViewer("compare", [{ src: lpSrc, label: tr.viewerLp }, { src: haranSrc, label: `${tr.viewerHaran} — ${pp.name}` }]); }}
-                style={{
-                  padding: "5px 9px", borderRadius: 6, border: `1px solid ${t.border}`,
-                  background: "transparent", color: t.textMuted, fontSize: 14,
-                  cursor: "pointer", flexShrink: 0, transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = t.tabActive.bg; e.currentTarget.style.color = t.tabActive.color; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = t.textMuted; }}
-              >⇔</button>
-            )}
-
-            <PpThumbnail ppName={pp.name} t={t} tr={tr}
-              onClick={e => { e.stopPropagation(); onOpenViewer("single", [{ src: haranSrc, label: `${tr.viewerHaran} — ${pp.name}` }]); }}
-            />
+            </div>
           </div>
         </td>
 
-        {/* Col 6: Components — show only relevant side */}
-        <td style={{ ...CELL, width: 270 }}>
-          <div style={{ fontFamily: "monospace", fontSize: 12 }}>
-            {pp.side === "BOT" ? (
-              <span>
-                <span style={{ color: "#f97316", fontWeight: 700 }}>B: </span>
-                <span style={{ color: t.textSub }}>{pp.cad_bot_count ?? "—"}</span>
-              </span>
-            ) : (
-              <span>
-                <span style={{ color: "#38bdf8", fontWeight: 700 }}>T: </span>
-                <span style={{ color: t.textSub }}>{pp.cad_top_count ?? "—"}</span>
-              </span>
-            )}
-          </div>
+        {/* Components — same column as the BG B · T */}
+        <td style={{ ...styles.cell, width: 170 }}>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ color: sideColor, fontWeight: 700 }}>{pp.side === "BOT" ? "B" : "T"}</span>
+            <span style={{ color: t.textSub }}> {sideCount ?? "—"}</span>
+          </span>
         </td>
 
-        {/* Flags — hinweis indicator */}
-        <td style={{ ...CELL, width: 110, textAlign: "center" }}>
-          {pp.hinweis && <span style={{ fontSize: 13 }}>📋</span>}
+        {/* Flags */}
+        <td style={{ ...styles.cell, width: 110 }}>
+          {hasHinweis && <span title="Hinweis" style={{ fontSize: 13 }}>📋</span>}
         </td>
 
-        {/* Info */}
-        <td style={{ ...CELL, width: 130, textAlign: "center", borderRight: "none" }}>
-          <div style={{ fontFamily: "'IBM Plex Sans'", fontSize: 13, lineHeight: 1.8 }}>
-            {hasErrors && (
-              <div style={{
-                padding: "2px 8px", borderRadius: 10, display: "inline-block",
-                background: colors.bg, border: `1px solid ${colors.border}60`,
-                color: colors.text, fontWeight: 700, marginBottom: 2,
-              }}>
-                {pp.errors.length} {pp.errors.length === 1 ? "Error" : "Errors"}
-              </div>
-            )}
-            {pp.pm_count > 0 && (
-              <div style={{ color: t.textMuted }}>{pp.pm_count} PM</div>
-            )}
-            {hasDetails && (
-              <div style={{ color: t.textMuted, fontSize: 11, marginTop: 2 }}>› details</div>
-            )}
-            {!hasErrors && !pp.pm_count && !hasDetails && (
-              <span style={{ color: "#22c55e", fontSize: 15 }}>✓</span>
-            )}
+        {/* Status */}
+        <td style={{ ...styles.cell, width: 90, textAlign: "right" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+            {pp.pm_count > 0 && <span style={{ color: t.textMuted, fontSize: 11 }}>{pp.pm_count} PM</span>}
+            <StatusPill rowColor={pp.row_color} count={pp.errors?.length || 0} t={t} />
+            {hasDetails && <span style={{ color: t.textMuted, fontSize: 12 }}>›</span>}
           </div>
         </td>
       </tr>
 
-      {/* PP error rows — start at Assembly col, span 6 cols */}
+      {/* ── PP error rows ── */}
       {hasErrors && pp.errors.map((err, i) => (
-        <tr key={`pp-err-${i}`} style={{
-          background: t.expandBg,
-          borderBottom: `1px solid ${colors.border}15`,
-          borderLeft: `4px solid ${colors.border}60`,
-        }}>
-          {nrCell}
-          <td style={{ ...CELL, width: 100 }} />
-          <td colSpan={6} style={{ padding: "4px 16px 4px 24px", borderRight: "none", verticalAlign: "middle" }}>
-            <ErrorBadge error={err} t={t} />
+        <tr key={`pp-err-${i}`} style={{ background: t.expandBg, borderBottom: `1px solid ${styles.divider}` }}>
+          {railCell}
+          <td colSpan={5} style={{ padding: styles.dense ? "3px 14px 3px 30px" : "4px 16px 4px 34px" }}>
+            <div style={{ borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
+              <ErrorBadge error={err} t={t} />
+            </div>
           </td>
         </tr>
       ))}

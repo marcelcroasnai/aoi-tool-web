@@ -105,7 +105,7 @@ def collect_files(project_root: Path) -> list[Path]:
 
 def make_archive(project_root: Path) -> Path:
     timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
-    archive_name = f"aoi-tool-web_{timestamp}.zip"
+    archive_name = f"_backup/aoi-tool-web_{timestamp}.zip"
     archive_path = project_root / archive_name
 
     files = collect_files(project_root)
@@ -128,6 +128,7 @@ def make_archive(project_root: Path) -> Path:
 
 
 if __name__ == "__main__":
-    project_root = Path(__file__).resolve().parent
+    #project_root = Path(__file__).resolve().parent
+    project_root = r"C:\Users\mcro\Documents\Py\aoi-tool-web"
     print(f"Radacina proiect: {project_root}\n")
     make_archive(project_root)

@@ -114,16 +114,104 @@ export function Flag({ label, color }) {
   );
 }
 
-export function Th({ label, width, t }) {
+export function Th({ label, width, align = "left", t }) {
   return (
     <th style={{
-      padding: "8px 8px", textAlign: "center",
+      padding: "9px 12px", textAlign: align,
       fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
       color: t.thHead.color, textTransform: "uppercase",
       borderBottom: `2px solid ${t.thHead.border}`,
       background: t.thHead.bg, width: width || "auto",
-      whiteSpace: "nowrap",
+      whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2,
     }}>{label}</th>
+  );
+}
+
+// ─── Inspection-table primitives (Direction A) ─────────────────────────────────
+
+const SEV_ICON = { green: "✓", yellow: "ℹ", orange: "⚠", red: "✗" };
+
+// One status object per row: icon + (count when not green).
+export function StatusPill({ rowColor, count = 0, t }) {
+  const c    = t.rowColors[rowColor] || t.rowColors.green;
+  const icon = SEV_ICON[rowColor] || "✓";
+  const showCount = rowColor !== "green" && count > 0;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+      background: c.bg, color: c.text, border: `1px solid ${c.border}40`,
+      fontVariantNumeric: "tabular-nums",
+    }}>
+      <span>{icon}</span>{showCount && <span>{count}</span>}
+    </span>
+  );
+}
+
+// Outline chip; lights up in `color` when provided, otherwise muted neutral.
+export function Chip({ label, color, t, mono, title }) {
+  const lit = !!color;
+  return (
+    <span title={title} style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "1px 7px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+      whiteSpace: "nowrap",
+      background: lit ? color + "1f" : "transparent",
+      color: lit ? color : t.textMuted,
+      border: `1px solid ${lit ? color + "55" : t.border}`,
+      fontFamily: mono ? "'IBM Plex Mono', monospace" : "inherit",
+    }}>{label}</span>
+  );
+}
+
+// Components cell: B/T (intranet) + a Δ badge when Cad counts disagree.
+export function CompCell({ iBot = 0, iTop = 0, cBot = 0, cTop = 0, t }) {
+  const same = iBot === cBot && iTop === cTop;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ color: "#f97316", fontWeight: 700 }}>B</span>
+        <span style={{ color: t.textSub }}> {iBot}</span>
+        <span style={{ color: t.border, margin: "0 5px" }}>·</span>
+        <span style={{ color: "#38bdf8", fontWeight: 700 }}>T</span>
+        <span style={{ color: t.textSub }}> {iTop}</span>
+      </span>
+      {!same && (
+        <span title={`Intranet B${iBot}/T${iTop} ≠ Cad B${cBot}/T${cTop}`} style={{
+          display: "inline-flex", alignItems: "center",
+          padding: "1px 6px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+          background: "#ef444420", color: "#fca5a5", border: "1px solid #ef444455",
+          cursor: "help",
+        }}>Δ</span>
+      )}
+    </span>
+  );
+}
+
+// SMD-line section band (replaces the old spacer row between lines).
+export function SmdBand({ line, colSpan, styles }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} style={styles.smdBand}>SMD {line}</td>
+    </tr>
+  );
+}
+
+export function DensityToggle({ dense, setDense, t }) {
+  return (
+    <button
+      onClick={() => setDense(d => !d)}
+      title={dense ? "Compact" : "Comfortable"}
+      style={{
+        padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+        border: `1px solid ${t.border}`, background: "transparent",
+        color: t.textMuted, fontSize: 13, fontWeight: 600,
+        fontFamily: "'IBM Plex Sans'", display: "flex", alignItems: "center", gap: 5,
+        transition: "all 0.15s",
+      }}
+    >
+      {dense ? "▤" : "▦"}
+    </button>
   );
 }
 
