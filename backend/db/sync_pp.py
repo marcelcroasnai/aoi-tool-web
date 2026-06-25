@@ -26,6 +26,7 @@ from modules.app_context import get_ctx
 from modules.pp_inspect  import (
     get_pp_list,
     _resolve_locked_name,
+    _is_locked_folder,
     _read_cad,
     _read_desc,
     _read_def,
@@ -89,9 +90,9 @@ def _run(counters: dict) -> None:
 
     # ── 3. Detect deleted PP ───────────────────────────────────────────────────
     # Map canonical pp_name → folder for everything in CadRuest
-    folder_map: dict[str, str] = {}   # pp_name → folder
+    folder_map: dict[str, str] = {}   # canonical pp_name → folder
     for folder in cad_folders:
-        pp_name = _resolve_locked_name(folder) if "__" in folder else folder
+        pp_name = _resolve_locked_name(folder)
         folder_map[pp_name] = folder
 
     deleted = set(db_pp.keys()) - set(folder_map.keys())
@@ -113,7 +114,7 @@ def _run(counters: dict) -> None:
             logger.warning(f"[sync_pp] folder missing on disk: {pp_path}")
             continue
 
-        locked = "__" in folder
+        locked = _is_locked_folder(folder)
 
         # Collect current mtimes for all tracked files
         current_mtimes = _collect_mtimes(pp_path, pp_name)
@@ -146,14 +147,14 @@ def _run(counters: dict) -> None:
             conn.execute(
                 """
                 INSERT INTO pp (
-                    pp_name, locked, cli, nutzen_in_lp, hinweis,
+                    pp_name, folder, locked, cli, nutzen_in_lp, hinweis,
                     oldest_mod, comp,
                     mtime_bbs, mtime_cad, mtime_def, mtime_desc,
                     mtime_mod, mtime_par, mtime_pre, mtime_ref,
                     mtime_size, mtime_hinweis,
                     synced_at
                 ) VALUES (
-                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
                     ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
@@ -161,6 +162,7 @@ def _run(counters: dict) -> None:
                     ?
                 )
                 ON CONFLICT(pp_name) DO UPDATE SET
+                    folder       = excluded.folder,
                     locked       = excluded.locked,
                     cli          = excluded.cli,
                     nutzen_in_lp = excluded.nutzen_in_lp,
@@ -180,7 +182,7 @@ def _run(counters: dict) -> None:
                     synced_at    = excluded.synced_at
                 """,
                 (
-                    pp_name, int(locked), cli, nutzen, hinweis,
+                    pp_name, folder, int(locked), cli, nutzen, hinweis,
                     oldest_mod, comp,
                     current_mtimes.get("bbs"),
                     current_mtimes.get("cad"),
@@ -248,29 +250,13 @@ def _update_bg_pp_list(conn, synced_at: str) -> None:
     from modules.errors import add_bg_error
 
     bg_rows = conn.execute("SELECT bg_name FROM bg").fetchall()
-    pp_all  = [row["pp_name"] for row in conn.execute("SELECT pp_name FROM pp").fetchall()]
 
-    # Also need locked folder names — get from pp table locked flag + pp_name
-    # _find_pp_folders needs the raw folder list (including __ prefix for locked)
-    # Build a fake pp_list that includes locked variants from the pp table
-    locked_rows = conn.execute(
-        "SELECT pp_name, locked FROM pp WHERE locked = 1"
-    ).fetchall()
-
-    # For locked PP we need to reconstruct the folder name (__prefix)
-    # Convention: locked pp_name = canonical, folder = bg_nr__idx... 
-    # We stored pp_name as canonical — reconstruct folder as bg_nr + __ + rest
-    def to_folder(pp_name: str, locked: bool) -> str:
-        if not locked:
-            return pp_name
-        parts = pp_name.split("_", 1)
-        return f"{parts[0]}__{parts[1]}" if len(parts) == 2 else pp_name
-
-    pp_list_with_locked = []
-    locked_map = {row["pp_name"]: True for row in locked_rows}
-    for pp_name in pp_all:
-        folder = to_folder(pp_name, locked_map.get(pp_name, False))
-        pp_list_with_locked.append(folder)
+    # Use the real CadRuest folder names (incl. _gesperrt suffix / __ quirks) so
+    # _find_pp_folders matches by index and returns canonical pp_names.
+    pp_list_with_locked = [
+        (row["folder"] or row["pp_name"])
+        for row in conn.execute("SELECT pp_name, folder FROM pp").fetchall()
+    ]
 
     # Dummy bg_dict for _find_pp_folders (only needs to accept add_bg_error calls)
     class _DummyBgDict(dict):

@@ -76,6 +76,7 @@ _DDL_STATEMENTS = [
     """
     CREATE TABLE IF NOT EXISTS pp (
         pp_name       TEXT PRIMARY KEY,
+        folder        TEXT,
         locked        INTEGER DEFAULT 0,
         cli           TEXT,
         medi          INTEGER DEFAULT 0,
@@ -193,6 +194,7 @@ def init_schema() -> None:
             _migrate_cli_local(conn)
             _migrate_pp_pm(conn)
             _migrate_bg_active(conn)
+            _migrate_pp_folder(conn)
             for stmt in _DDL_STATEMENTS:
                 conn.execute(stmt)
         logger.info("DB: schema ready")
@@ -217,6 +219,15 @@ def _migrate_bg_active(conn: sqlite3.Connection) -> None:
     if cols and "active" not in cols:
         logger.info("DB: migrating bg — adding active column")
         conn.execute("ALTER TABLE bg ADD COLUMN active INTEGER DEFAULT 1")
+
+
+def _migrate_pp_folder(conn: sqlite3.Connection) -> None:
+    """Add folder column to pp (CadRuest display name) and backfill it."""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(pp)").fetchall()]
+    if cols and "folder" not in cols:
+        logger.info("DB: migrating pp — adding folder column")
+        conn.execute("ALTER TABLE pp ADD COLUMN folder TEXT")
+        conn.execute("UPDATE pp SET folder = pp_name WHERE folder IS NULL")
 
 
 def _migrate_pp_pm(conn: sqlite3.Connection) -> None:

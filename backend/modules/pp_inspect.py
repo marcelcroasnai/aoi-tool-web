@@ -300,20 +300,47 @@ def _find_pp_folders(
     for folder, idx, locked, rtgt in parsed:
         if idx != pp_idx or rtgt is not None:
             continue
-        if locked:
-            pp_name = _resolve_locked_name(folder)
-            seen[pp_name] = (True, folder)
-        else:
-            if "BOT" not in folder and "TOP" not in folder:
-                add_bg_error(bg_dict, bg_name, "Error_64", f"Testplan {folder} has no BOT or TOP in name.")
-            seen.setdefault(folder, (False, folder))
+        canonical = _resolve_locked_name(folder)
+        is_locked = _is_locked_folder(folder)
+        if not is_locked and "BOT" not in folder.upper() and "TOP" not in folder.upper():
+            add_bg_error(bg_dict, bg_name, "Error_64", f"Testplan {folder} has no BOT or TOP in name.")
+        seen[canonical] = (is_locked, folder)
 
     return [(pp_name, locked, folder)
             for pp_name, (locked, folder) in seen.items()]
 
 
+# Matches a trailing "_gesperrt" / "_Gesperrt" lock suffix (one+ leading "_").
+_GESPERRT_RE = re.compile(r"_+gesperrt$", re.IGNORECASE)
+
+
+def _is_locked_folder(folder: str) -> bool:
+    """
+    A PP is locked when its CadRuest folder name ends in the lock suffix
+    "_gesperrt" or "_Gesperrt" (either case). Only the folder carries this
+    suffix; the files inside use the plain (canonical) name.
+    """
+    return bool(_GESPERRT_RE.search(folder or ""))
+
+
 def _resolve_locked_name(folder: str) -> str:
-    return folder.replace("__", "_", 1).replace("_gesperrt", "")
+    """
+    CadRuest folder name → canonical file base used inside the folder.
+
+    Locked-PP naming convention:
+      * the folder ends in "_gesperrt" / "_Gesperrt" (either case),
+      * a doubled underscore "__" may appear at ANY underscore position,
+      * the FILES inside the folder use the plain canonical name.
+
+    So: drop the lock suffix (case-insensitive), collapse any repeated
+    underscores to one, and strip a leftover trailing underscore.
+        8765432_01TOP_DMC_Gesperrt    → 8765432_01TOP_DMC
+        8765432__10TOP_DMC__gesperrt  → 8765432_10TOP_DMC
+        8765432__10TOP_DMC            → 8765432_10TOP_DMC
+    """
+    name = _GESPERRT_RE.sub("", folder or "")
+    name = re.sub(r"_{2,}", "_", name)
+    return name.rstrip("_")
 
 
 # ─── Core assembler ───────────────────────────────────────────────────────────

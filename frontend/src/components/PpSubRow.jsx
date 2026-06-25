@@ -216,6 +216,9 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
   const hasDetails = hasPm || hasHinweis || hasErrors;
   const sideColor  = SIDE_COLOR[pp.side] || SIDE_COLOR.TOP;
   const sideCount  = pp.side === "BOT" ? pp.cad_bot_count : pp.cad_top_count;
+  const displayName = pp.placeholder
+    ? (tr.noTestplan || "No testplan found")
+    : (pp.display_name || pp.name);
 
   const haranSrc   = `${API_BASE}/api/image/${encodeURIComponent(pp.name)}?type=hr`;
   const lpSrc      = lpImageSrc ?? null;
@@ -257,8 +260,8 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
             }}>{pp.side}</span>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 170, flexShrink: 0 }}>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: t.text }}>
-                {pp.name}
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: pp.placeholder ? t.textMuted : t.text }}>
+                {displayName}
               </span>
               {pp.cli && (
                 <span style={{
@@ -312,10 +315,8 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
           </span>
         </td>
 
-        {/* Flags */}
-        <td style={{ ...styles.cell, width: 110 }}>
-          {hasHinweis && <span title="Hinweis" style={{ fontSize: 13 }}>📋</span>}
-        </td>
+        {/* Flags (Hinweis is shown on its own line below) */}
+        <td style={{ ...styles.cell, width: 110 }} />
 
         {/* Status */}
         <td style={{ ...styles.cell, width: 90, textAlign: "right" }}>
@@ -327,11 +328,32 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
         </td>
       </tr>
 
+      {/* ── Hinweis line — always visible, aligned under BOT | PP | images ── */}
+      {hasHinweis && (
+        <tr style={{ background: "transparent", borderBottom: `1px solid ${styles.divider}` }}>
+          {railCell}
+          <td colSpan={5} style={{ padding: `0 ${styles.padX}px ${styles.dense ? 7 : 10}px ${styles.padX}px` }}>
+            <div style={{ borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
+              <div style={{
+                display: "flex", gap: 8, alignItems: "flex-start",
+                background: withAlpha("#60a5fa", 0.15),
+                border: `1px solid ${withAlpha("#60a5fa", 0.35)}`,
+                borderRadius: 8,
+                padding: "8px 12px", fontSize: 15, lineHeight: 1.55, color: t.text,
+              }}>
+                <span style={{ fontSize: 15, flexShrink: 0 }}>📋</span>
+                <span style={{ whiteSpace: "pre-wrap" }}>{pp.hinweis}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+
       {/* ── PP error rows ── */}
       {hasErrors && pp.errors.map((err, i) => (
         <tr key={`pp-err-${i}`} style={{ background: t.expandBg, borderBottom: `1px solid ${styles.divider}` }}>
           {railCell}
-          <td colSpan={5} style={{ padding: styles.dense ? "3px 14px 3px 30px" : "4px 16px 4px 34px" }}>
+          <td colSpan={5} style={{ padding: `${styles.dense ? 3 : 4}px ${styles.padX}px` }}>
             <div style={{ borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
               <ErrorBadge error={err} t={t} />
             </div>

@@ -18,7 +18,7 @@ from typing import Generator, Optional
 
 from modules.app_context import get_ctx
 from modules.pp_inspect  import (
-    get_pp_list, _resolve_locked_name,
+    get_pp_list, _resolve_locked_name, _is_locked_folder,
     _read_cad, _read_desc, _read_def, _read_hinweis,
 )
 from db.schema   import get_conn
@@ -100,7 +100,7 @@ def refresh_ap_with_progress() -> Generator[str, None, None]:
     all_folders = get_pp_list()
     folder_map: dict[str, str] = {}
     for folder in all_folders:
-        pp_name = _resolve_locked_name(folder) if "__" in folder else folder
+        pp_name = _resolve_locked_name(folder)
         folder_map[pp_name] = folder
 
     # ── 5. Check + update each PP ─────────────────────────────────────────────
@@ -139,19 +139,20 @@ def refresh_ap_with_progress() -> Generator[str, None, None]:
         hinweis    = _read_hinweis(pp_path)
         oldest_mod = _parse_mod(os.path.join(pp_path, file_base + ".mod"))
         comp       = _build_comp_str(pm_dict)
-        locked     = "__" in folder
+        locked     = _is_locked_folder(folder)
 
         with conn:
             conn.execute(
                 """
                 INSERT INTO pp (
-                    pp_name, locked, cli, nutzen_in_lp, hinweis,
+                    pp_name, folder, locked, cli, nutzen_in_lp, hinweis,
                     oldest_mod, comp,
                     mtime_bbs, mtime_cad, mtime_def, mtime_desc,
                     mtime_mod, mtime_par, mtime_pre, mtime_ref,
                     mtime_size, mtime_hinweis, synced_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(pp_name) DO UPDATE SET
+                    folder        = excluded.folder,
                     locked        = excluded.locked,
                     cli           = excluded.cli,
                     nutzen_in_lp  = excluded.nutzen_in_lp,
@@ -171,7 +172,7 @@ def refresh_ap_with_progress() -> Generator[str, None, None]:
                     synced_at     = excluded.synced_at
                 """,
                 (
-                    pp_name, int(locked), cli, nutzen, hinweis,
+                    pp_name, folder, int(locked), cli, nutzen, hinweis,
                     oldest_mod, comp,
                     current_mtimes.get("bbs"), current_mtimes.get("cad"),
                     current_mtimes.get("def"), current_mtimes.get("desc"),
