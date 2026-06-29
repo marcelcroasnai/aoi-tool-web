@@ -44,7 +44,7 @@ def sync_cli_global() -> None:
     """Step 4: Sync cli_global table from CliRuest top-level .cle files."""
     t_start  = time.time()
     log_id   = start_sync("cli")
-    counters = {"total": 0, "changed": 0, "new": 0, "deleted": 0}
+    counters = {"total": 0, "changed": 0, "new": 0, "deleted": 0, "skipped": 0}
 
     try:
         _run_global(counters)
@@ -65,7 +65,7 @@ def sync_cli_local() -> None:
     """Step 5: Sync cli_local table from CliRuest PP-subfolder .cle files."""
     t_start  = time.time()
     log_id   = start_sync("cli")
-    counters = {"total": 0, "changed": 0, "new": 0, "deleted": 0}
+    counters = {"total": 0, "changed": 0, "new": 0, "deleted": 0, "skipped": 0}
 
     try:
         _run_local(counters)
@@ -83,6 +83,20 @@ def sync_cli_local() -> None:
 
 
 # ─── Step 4: cli_global ───────────────────────────────────────────────────────
+
+def _safe_listdir(path: str, counters: dict) -> list[str]:
+    """List a directory, tolerating permission/IO errors on the live share.
+
+    A denied or unreadable folder is logged and skipped (returns []) instead of
+    aborting the whole sync, and counted under counters['skipped'].
+    """
+    try:
+        return os.listdir(path)
+    except (PermissionError, OSError) as e:
+        logger.warning(f"[sync_cli] cannot list {path}: {e}")
+        counters["skipped"] = counters.get("skipped", 0) + 1
+        return []
+
 
 def _run_global(counters: dict) -> None:
     ctx      = get_ctx()
@@ -108,7 +122,7 @@ def _run_global(counters: dict) -> None:
     for cli in cli_list:
         cli_path = os.path.join(cli_root, cli)
 
-        for filename in os.listdir(cli_path):
+        for filename in _safe_listdir(cli_path, counters):
             if not filename.lower().endswith(".cle"):
                 continue
 
@@ -118,7 +132,7 @@ def _run_global(counters: dict) -> None:
 
             pm_name  = os.path.splitext(filename)[0].lower()
             cle_path = os.path.join(cli_path, filename)
-            key      = (pm_name, cli)
+            key      = (pm_name, cli.lower())   # match the lowercased cli stored in the DB
             seen.add(key)
             counters["total"] += 1
 
@@ -175,7 +189,8 @@ def _run_global(counters: dict) -> None:
     logger.info(
         f"[sync_cli_global] done — "
         f"total={counters['total']} new={counters['new']} "
-        f"changed={counters['changed']} deleted={counters['deleted']}"
+        f"changed={counters['changed']} deleted={counters['deleted']} "
+        f"skipped={counters['skipped']}"
     )
 
 
@@ -206,7 +221,7 @@ def _run_local(counters: dict) -> None:
         cli_path = os.path.join(cli_root, cli)
 
         # Each subfolder that starts with "80" is a PP-specific override folder
-        for pp_folder in os.listdir(cli_path):
+        for pp_folder in _safe_listdir(cli_path, counters):
             pp_subfolder = os.path.join(cli_path, pp_folder)
             if not os.path.isdir(pp_subfolder):
                 continue
@@ -217,20 +232,25 @@ def _run_local(counters: dict) -> None:
             from modules.pp_inspect import _resolve_locked_name
             pp_name = _resolve_locked_name(pp_folder)
 
-            for filename in os.listdir(pp_subfolder):
+            for filename in _safe_listdir(pp_subfolder, counters):
                 if not filename.lower().endswith(".cle"):
                     continue
 
                 pm_name  = os.path.splitext(filename)[0].lower()
                 cle_path = os.path.join(pp_subfolder, filename)
                 key      = (pm_name, pp_name)
-                seen.add(key)
+                seen.add(key)   # keep in 'seen' even if unreadable, so the row isn't deleted
                 counters["total"] += 1
 
-                current_mtime_cle = os.path.getmtime(cle_path)
-                active_macros, mtime_mac, last_mac_name = _parse_cle(
-                    cle_path, pp_subfolder
-                )
+                try:
+                    current_mtime_cle = os.path.getmtime(cle_path)
+                    active_macros, mtime_mac, last_mac_name = _parse_cle(
+                        cle_path, pp_subfolder
+                    )
+                except (PermissionError, OSError) as e:
+                    logger.warning(f"[sync_cli] cannot read .cle {cle_path}: {e}")
+                    counters["skipped"] = counters.get("skipped", 0) + 1
+                    continue
 
                 db_mtime_cle, db_mtime_mac = db_state.get(key, (None, None))
                 is_new = key not in db_state
@@ -283,7 +303,8 @@ def _run_local(counters: dict) -> None:
     logger.info(
         f"[sync_cli_local] done — "
         f"total={counters['total']} new={counters['new']} "
-        f"changed={counters['changed']} deleted={counters['deleted']}"
+        f"changed={counters['changed']} deleted={counters['deleted']} "
+        f"skipped={counters['skipped']}"
     )
 
 
