@@ -213,8 +213,9 @@ def _run_local(counters: dict) -> None:
             if not pp_folder.startswith("80"):
                 continue
 
-            # Canonical pp_name (resolve locked folder names)
-            pp_name = pp_folder.replace("__", "_", 1).replace("_gesperrt", "")
+            # Canonical pp_name (resolve locked folder names: _gesperrt + __)
+            from modules.pp_inspect import _resolve_locked_name
+            pp_name = _resolve_locked_name(pp_folder)
 
             for filename in os.listdir(pp_subfolder):
                 if not filename.lower().endswith(".cle"):

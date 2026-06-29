@@ -324,6 +324,8 @@ def _run() -> tuple[dict, list, int]:
 
                 pp_details.append(PpSummary(
                     name          = pp_name,
+                    display_name  = None if is_placeholder else (pp.get("folder") or pp_name),
+                    placeholder   = is_placeholder,
                     side          = side,
                     bg_name       = bg_name,
                     locked        = bool(pp.get("locked")),

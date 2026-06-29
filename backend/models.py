@@ -35,7 +35,9 @@ class InspectionError(BaseModel):
 # ─── PP summary (one sub-row in the table) ───────────────────────────────────
 
 class PpSummary(BaseModel):
-    name:         str            # "8009917_04BOT_ROT"
+    name:         str            # canonical key / file base, e.g. "8009917_04BOT_ROT"
+    display_name: Optional[str] = None   # CadRuest folder name shown in the table
+    placeholder:  bool = False           # synthetic row for a BG with no PP
     side:         str            # "BOT" | "TOP"
     bg_name:      str            # back-reference
     locked:       bool = False

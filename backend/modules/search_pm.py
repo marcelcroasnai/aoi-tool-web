@@ -72,7 +72,7 @@ def search_pm(
             continue
 
         # Resolve canonical pp_name (locked folders use __ prefix)
-        pp_name = _resolve_locked_name(folder) if "__" in folder else folder
+        pp_name = _resolve_locked_name(folder)
         pp_path = os.path.join(ctx.cad_ruest_path, folder)
 
         data = read_pp_for_search(folder, pp_name, pp_path)
