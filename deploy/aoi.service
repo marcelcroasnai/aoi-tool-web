@@ -1,0 +1,22 @@
+[Unit]
+Description=AOI Tool (backend + frontend in a tmux session)
+After=network-online.target remote-fs.target
+Wants=network-online.target
+# Wait for the CIFS share before starting (live mode reads it).
+RequiresMountsFor=/mnt/aoi
+
+[Service]
+# oneshot + RemainAfterExit: the launcher creates a DETACHED tmux session and
+# exits, but the tmux server keeps running in this unit's cgroup, so the unit
+# stays "active" and the session survives until you stop it. systemd kills the
+# tmux server on stop/restart (ExecStop tears it down gracefully first).
+Type=oneshot
+RemainAfterExit=yes
+User=pi
+WorkingDirectory=/home/pi/aoi-web
+Environment=BACKEND_PORT=57842
+ExecStart=/home/pi/aoi-web/aoi-web_start.sh
+ExecStop=/usr/bin/tmux kill-session -t aoi
+
+[Install]
+WantedBy=multi-user.target
