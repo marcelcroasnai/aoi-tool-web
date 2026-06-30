@@ -46,7 +46,7 @@ function SyncPill({ label, info, running, t }) {
   );
 }
 
-export function SyncBar({ t, tr }) {
+export function SyncBar({ t, tr, vertical = false }) {
   const [status,   setStatus]   = useState(null);
   const [loading,  setLoading]  = useState({ full: false, ap: false });
 
@@ -87,7 +87,7 @@ export function SyncBar({ t, tr }) {
   const lastAp  = _fmtTime(status?.ap?.finished_at);
 
   const btnStyle = (active, color = "#0ea5e9") => ({
-    display: "flex", alignItems: "center", gap: 5,
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
     padding: "4px 12px", borderRadius: 8,
     background: active ? `${color}20` : t.bgInput,
     color: active ? color : t.textMuted,
@@ -100,13 +100,16 @@ export function SyncBar({ t, tr }) {
 
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+      display: "flex",
+      ...(vertical
+        ? { flexDirection: "column", alignItems: "stretch", gap: 8, width: "100%" }
+        : { alignItems: "center", gap: 8, flexWrap: "wrap" }),
     }}>
       {/* AP sync pill */}
       <SyncPill label={tr.syncLastAp} info={lastAp} running={apRunning} t={t} />
 
-      {/* Divider */}
-      <div style={{ width: 1, height: 20, background: t.border }} />
+      {/* Divider (horizontal layout only) */}
+      {!vertical && <div style={{ width: 1, height: 20, background: t.border }} />}
 
       {/* PP + CLI sync button */}
       <button

@@ -20,6 +20,7 @@ export function makeTableStyles(t, dense) {
   const padY = dense ? 6 : 10;
   const padX = dense ? 10 : 12;
   const divider = withAlpha(t.border, 0.5);
+  const accent = t.tabActive.color;   // sky (dark) / blue (light) — SMD band accent
 
   return {
     dense,
@@ -38,13 +39,16 @@ export function makeTableStyles(t, dense) {
       color: t.text,
     },
 
+    // SMD-line section header — clearly marks where a new line's BGs begin.
     smdBand: {
-      padding: `${dense ? 4 : 6}px 14px`,
-      background: t.expandBg,
-      color: t.textMuted,
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-      borderTop: `1px solid ${t.border}`,
-      borderBottom: `1px solid ${divider}`,
+      padding: `${dense ? 5 : 7}px 14px`,
+      background: withAlpha(accent, 0.16),
+      color: accent,
+      fontSize: 12, fontWeight: 800, letterSpacing: "0.12em",
+      textTransform: "uppercase",
+      borderTop:    `1px solid ${withAlpha(accent, 0.45)}`,
+      borderBottom: `1px solid ${withAlpha(accent, 0.45)}`,
+      borderLeft:   `4px solid ${accent}`,
     },
 
     num:  { fontVariantNumeric: "tabular-nums" },

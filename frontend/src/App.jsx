@@ -45,6 +45,11 @@ export default function App() {
   const t  = THEMES[isDark ? "dark" : "light"];
   const tr = TR[lang];
 
+  // Global UI scale (fonts read too small on FullHD at 100%). The sidebar
+  // height is derived from this so a 100vh column stays exactly one screen tall.
+  const ZOOM        = 1.15;
+  const SIDEBAR_W   = 232;
+
   const [ideasOpen, setIdeasOpen] = useState(false);
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -117,10 +122,10 @@ export default function App() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: t.bg, color: t.text,
+      background: t.bg, color: t.text,
       fontFamily: "'IBM Plex Mono','Consolas',monospace",
       transition: "background 0.3s, color 0.3s",
-      zoom: 1.15,   // global scale-up — fonts read too small on FullHD at 100%
+      zoom: ZOOM,   // global scale-up — fonts read too small on FullHD at 100%
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
@@ -141,138 +146,174 @@ export default function App() {
           t={t} tr={tr}
         />
       )}
+      {ideasOpen && <IdeasPanel t={t} tr={tr} onClose={() => setIdeasOpen(false)} />}
 
-      {/* ── Header ── */}
-      <div style={{
-        borderBottom: `1px solid ${t.border}`,
-        background: t.bgHeader, padding: "0 24px",
-        position: "sticky", top: 0, zIndex: 100,
-        boxShadow: isDark ? "0 1px 12px #00000060" : "0 1px 6px #00000015",
-      }}>
-        <div style={{ maxWidth: 1700, margin: "0 auto", display: "flex", alignItems: "center", gap: 12, height: 56 }}>
+      {/* ── App shell: left sidebar + main ── */}
+      <div style={{ display: "flex", minHeight: `calc(100vh / ${ZOOM})` }}>
 
-          {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {/* ════ Sidebar ════ */}
+        <aside style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          position: "sticky", top: 0, alignSelf: "flex-start",
+          height: `calc(100vh / ${ZOOM})`, overflowY: "auto",
+          background: t.bgHeader,
+          borderRight: `1px solid ${t.border}`,
+          boxShadow: isDark ? "1px 0 12px #00000060" : "1px 0 6px #00000010",
+          display: "flex", flexDirection: "column", gap: 18,
+          padding: "16px 14px",
+        }}>
+
+          {/* Identity */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 4px" }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 8,
+              width: 34, height: 34, borderRadius: 9,
               background: "linear-gradient(135deg,#0ea5e9,#6366f1)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16, fontWeight: 700, color: "#fff",
+              fontSize: 17, fontWeight: 700, color: "#fff", flexShrink: 0,
             }}>A</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: "'IBM Plex Sans'" }}>AOI Tool</div>
-              <div style={{ fontSize: 10, color: t.textMuted }}>{tr.appSub}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: t.text, fontFamily: "'IBM Plex Sans'" }}>AOI Tool</div>
+              <div style={{ fontSize: 10, color: t.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tr.appSub}</div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: "flex", gap: 2, marginLeft: 16 }}>
-            {[["inspection", tr.tabInspection], ["search", tr.tabSearch]].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key)} style={{
-                padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer",
-                fontFamily: "'IBM Plex Sans'", fontSize: 13, fontWeight: 600,
-                background: tab === key ? t.tabActive.bg    : t.tabInactive.bg,
-                color:      tab === key ? t.tabActive.color : t.tabInactive.color,
-              }}>{label}</button>
-            ))}
-          </div>
-
-          <div style={{ flex: 1 }} />
-
-          <button
-            onClick={() => setIdeasOpen(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "5px 12px", borderRadius: 8,
-              border: `1px solid ${t.border}`, background: "transparent",
-              color: t.textMuted, fontSize: 12,
-              fontFamily: "'IBM Plex Sans'", fontWeight: 600,
-              cursor: "pointer", transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}
-          >
-            💡 Ideas
-          </button>
-
-          <SyncBar t={t} tr={tr} />
-          {lastTime && (
-            <span style={{ fontSize: 11, color: t.textMuted }}>
-              {lastTime}{duration > 0 ? ` (${duration}s)` : ""}
-            </span>
-          )}
-
-          <LangToggle lang={lang} setLang={setLang} t={t} />
-
-          {/* Live / Test */}
-          <div style={{
-            display: "flex", alignItems: "center",
-            borderRadius: 20, overflow: "hidden",
-            border: `1px solid ${appMode === "test" ? "#f97316" : t.border}`,
-            opacity: modeLoading ? 0.6 : 1,
-          }}>
-            {[["live", tr.modeLive], ["test", tr.modeTest]].map(([mode, label]) => {
-              const isActive = appMode === mode;
-              const isTest   = mode === "test";
+          {/* Navigation */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: t.textMuted, textTransform: "uppercase", padding: "0 4px", marginBottom: 2 }}>
+              Menu
+            </div>
+            {[["inspection", tr.tabInspection], ["search", tr.tabSearch]].map(([key, label]) => {
+              const active = tab === key;
               return (
-                <button key={mode} onClick={() => switchMode(mode)} disabled={modeLoading} style={{
-                  padding: "5px 13px", border: "none",
-                  cursor: modeLoading ? "not-allowed" : "pointer",
-                  fontFamily: "'IBM Plex Sans'", fontSize: 12, fontWeight: 700,
-                  background: isActive ? (isTest ? "#431900" : "#052e16") : "transparent",
-                  color:      isActive ? (isTest ? "#fb923c" : "#4ade80") : t.textMuted,
-                  display: "flex", alignItems: "center", gap: 5,
+                <button key={key} onClick={() => setTab(key)} style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  width: "100%", textAlign: "left",
+                  padding: "9px 12px", borderRadius: 8, cursor: "pointer",
+                  border: "none", borderLeft: `3px solid ${active ? t.tabActive.color : "transparent"}`,
+                  fontFamily: "'IBM Plex Sans'", fontSize: 13, fontWeight: 600,
+                  background: active ? t.tabActive.bg : "transparent",
+                  color:      active ? t.tabActive.color : t.textMuted,
                 }}>
-                  {isActive && (
-                    <span style={{
-                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                      background: isTest ? "#f97316" : "#22c55e",
-                      boxShadow: `0 0 6px ${isTest ? "#f97316" : "#22c55e"}`,
-                    }} />
-                  )}
                   {label}
                 </button>
               );
             })}
-            {ideasOpen && <IdeasPanel t={t} tr={tr} onClose={() => setIdeasOpen(false)} />}
           </div>
 
-          {/* Dark / Light */}
-          <button onClick={() => setIsDark(d => !d)} style={{
-            width: 36, height: 36, borderRadius: 8,
-            border: `1px solid ${t.border}`, background: "transparent",
-            color: t.textSub, fontSize: 16, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>{t.toggleIcon}</button>
-        </div>
-      </div>
+          {/* Spacer pushes status + settings to the bottom */}
+          <div style={{ flex: 1 }} />
 
-      {/* ── Content ── */}
-      <div style={{ maxWidth: 1700, margin: "0 auto", padding: "16px 24px" }}>
+          {/* Live status */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: t.textMuted, textTransform: "uppercase", padding: "0 4px" }}>
+              Status
+            </div>
+            <SyncBar t={t} tr={tr} vertical />
+            {lastTime && (
+              <span style={{ fontSize: 11, color: t.textMuted, padding: "0 4px" }}>
+                {lastTime}{duration > 0 ? ` (${duration}s)` : ""}
+              </span>
+            )}
+            <button
+              onClick={() => setIdeasOpen(true)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                width: "100%", padding: "7px 12px", borderRadius: 8,
+                border: `1px solid ${t.border}`, background: "transparent",
+                color: t.textMuted, fontSize: 12,
+                fontFamily: "'IBM Plex Sans'", fontWeight: 600,
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}
+            >
+              💡 Ideas
+            </button>
+          </div>
 
-        {tab === "search" && <SearchPmTab t={t} tr={tr} />}
+          <div style={{ height: 1, background: t.border }} />
 
-        {tab === "inspection" && (
-          <>
-            <InspectionPanel
-              inspMode={inspMode}
-              setInspMode={setInspMode}
-              loading={loading}
-              progressMsg={progressMsg}
-              onRun={runInspection}
-              t={t} tr={tr}
-            />
+          {/* Settings (set-once) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: t.textMuted, textTransform: "uppercase", padding: "0 4px" }}>
+              Settings
+            </div>
 
-            <InspectionTable
-              currentData={currentData}
-              loading={loading}
-              error={error}
-              inspMode={inspMode}
-              t={t} tr={tr}
-              onOpenViewer={openViewer}
-            />
-          </>
-        )}
+            {/* Language + theme on one row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <LangToggle lang={lang} setLang={setLang} t={t} />
+              <div style={{ flex: 1 }} />
+              <button onClick={() => setIsDark(d => !d)} style={{
+                width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                border: `1px solid ${t.border}`, background: "transparent",
+                color: t.textSub, fontSize: 16, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>{t.toggleIcon}</button>
+            </div>
+
+            {/* Live / Test — full width */}
+            <div style={{
+              display: "flex", alignItems: "center", width: "100%",
+              borderRadius: 20, overflow: "hidden",
+              border: `1px solid ${appMode === "test" ? "#f97316" : t.border}`,
+              opacity: modeLoading ? 0.6 : 1,
+            }}>
+              {[["live", tr.modeLive], ["test", tr.modeTest]].map(([mode, label]) => {
+                const isActive = appMode === mode;
+                const isTest   = mode === "test";
+                return (
+                  <button key={mode} onClick={() => switchMode(mode)} disabled={modeLoading} style={{
+                    flex: 1, padding: "6px 13px", border: "none",
+                    cursor: modeLoading ? "not-allowed" : "pointer",
+                    fontFamily: "'IBM Plex Sans'", fontSize: 12, fontWeight: 700,
+                    background: isActive ? (isTest ? "#431900" : "#052e16") : "transparent",
+                    color:      isActive ? (isTest ? "#fb923c" : "#4ade80") : t.textMuted,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  }}>
+                    {isActive && (
+                      <span style={{
+                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                        background: isTest ? "#f97316" : "#22c55e",
+                        boxShadow: `0 0 6px ${isTest ? "#f97316" : "#22c55e"}`,
+                      }} />
+                    )}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        {/* ════ Main content ════ */}
+        <main style={{ flex: 1, minWidth: 0, overflowX: "hidden" }}>
+          <div style={{ maxWidth: 1700, margin: "0 auto", padding: "16px 24px" }}>
+
+            {tab === "search" && <SearchPmTab t={t} tr={tr} />}
+
+            {tab === "inspection" && (
+              <>
+                <InspectionPanel
+                  inspMode={inspMode}
+                  setInspMode={setInspMode}
+                  loading={loading}
+                  progressMsg={progressMsg}
+                  onRun={runInspection}
+                  t={t} tr={tr}
+                />
+
+                <InspectionTable
+                  currentData={currentData}
+                  loading={loading}
+                  error={error}
+                  inspMode={inspMode}
+                  t={t} tr={tr}
+                  onOpenViewer={openViewer}
+                />
+              </>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
