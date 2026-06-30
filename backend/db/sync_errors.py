@@ -199,19 +199,36 @@ def _run() -> tuple[dict, list, int]:
                 errors.append(_make_error_row(bg_name, pp_name, "Error_17",
                     f"PP {pp_name} is locked.", created_at))
 
-            # Errors 1–7: missing files
+            # Errors 1–5: always-required files
             for ext, code in [
                 ("cad",  "Error_1"),
                 ("def",  "Error_2"),
                 ("desc", "Error_3"),
                 ("ref",  "Error_4"),
                 ("size", "Error_5"),
-                ("par",  "Error_6"),
-                ("pre",  "Error_7"),
             ]:
                 if pp.get(f"mtime_{ext}") is None:
                     errors.append(_make_error_row(bg_name, pp_name, code,
                         f"{pp_name}.{ext} missing.", created_at))
+
+            # Errors 6–7: .par / .pre are DMC-only artifacts. Check their
+            # presence only when this PP is DMC-relevant, i.e. the PP name
+            # carries the "_DMC" marker, or the dmc flag is set on the pp row
+            # or on the parent bg row. Otherwise a non-DMC plan would always
+            # trip Error_6/_7 for files it is not expected to have.
+            dmc_relevant = (
+                "_DMC" in pp_name.upper()
+                or bool(pp.get("dmc"))
+                or bool(bg.get("dmc"))
+            )
+            if dmc_relevant:
+                for ext, code in [
+                    ("par", "Error_6"),
+                    ("pre", "Error_7"),
+                ]:
+                    if pp.get(f"mtime_{ext}") is None:
+                        errors.append(_make_error_row(bg_name, pp_name, code,
+                            f"{pp_name}.{ext} missing.", created_at))
 
             # Error_8: Haran files missing (.uscal, .us.bmp, .hr.bmp)
             pic_path = ctx.picture_path
