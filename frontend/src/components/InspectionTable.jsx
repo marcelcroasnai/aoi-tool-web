@@ -4,7 +4,7 @@ import { SummaryBar, Spinner, Th, SmdBand, DensityToggle } from "./shared.jsx";
 import { BaugrupeRow } from "./BaugrupeRow.jsx";
 import { makeTableStyles } from "../constants/tableStyles.js";
 
-const COL_COUNT = 6;
+const COL_COUNT = 5;
 
 export function InspectionTable({
   currentData, loading, error, inspMode,
@@ -154,7 +154,6 @@ export function InspectionTable({
               <Th label={tr.colBg}                              t={t} />
               <Th label={tr.colKunde} width={110}              t={t} />
               <Th label="Components"  width={170}              t={t} />
-              <Th label={tr.colFlags} width={110}              t={t} />
               <Th label="Status"      width={90}  align="right" t={t} />
             </tr>
           </thead>

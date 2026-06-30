@@ -120,6 +120,7 @@ export default function App() {
       minHeight: "100vh", background: t.bg, color: t.text,
       fontFamily: "'IBM Plex Mono','Consolas',monospace",
       transition: "background 0.3s, color 0.3s",
+      zoom: 1.15,   // global scale-up — fonts read too small on FullHD at 100%
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');

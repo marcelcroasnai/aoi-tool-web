@@ -315,9 +315,6 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
           </span>
         </td>
 
-        {/* Flags (Hinweis is shown on its own line below) */}
-        <td style={{ ...styles.cell, width: 110 }} />
-
         {/* Status */}
         <td style={{ ...styles.cell, width: 90, textAlign: "right" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
@@ -332,17 +329,19 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
       {hasHinweis && (
         <tr style={{ background: "transparent", borderBottom: `1px solid ${styles.divider}` }}>
           {railCell}
-          <td colSpan={5} style={{ padding: `0 ${styles.padX}px ${styles.dense ? 7 : 10}px ${styles.padX}px` }}>
+          <td colSpan={4} style={{ padding: `0 ${styles.padX}px ${styles.dense ? 7 : 10}px ${styles.padX}px` }}>
             <div style={{ borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
               <div style={{
-                display: "flex", gap: 8, alignItems: "flex-start",
-                background: withAlpha("#60a5fa", 0.15),
-                border: `1px solid ${withAlpha("#60a5fa", 0.35)}`,
+                background: withAlpha(sideColor, 0.15),
+                border: `1px solid ${withAlpha(sideColor, 0.35)}`,
                 borderRadius: 8,
                 padding: "8px 12px", fontSize: 15, lineHeight: 1.55, color: t.text,
               }}>
-                <span style={{ fontSize: 15, flexShrink: 0 }}>📋</span>
-                <span style={{ whiteSpace: "pre-wrap" }}>{pp.hinweis}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>📋</span>
+                  <span style={{ fontWeight: 700, color: sideColor }}>Hinweis</span>
+                </div>
+                <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{pp.hinweis}</div>
               </div>
             </div>
           </td>
@@ -353,7 +352,7 @@ export function PpSubRow({ pp, isLast, railCell, sevColor, t, tr, onOpenViewer, 
       {hasErrors && pp.errors.map((err, i) => (
         <tr key={`pp-err-${i}`} style={{ background: t.expandBg, borderBottom: `1px solid ${styles.divider}` }}>
           {railCell}
-          <td colSpan={5} style={{ padding: `${styles.dense ? 3 : 4}px ${styles.padX}px` }}>
+          <td colSpan={4} style={{ padding: `${styles.dense ? 3 : 4}px ${styles.padX}px` }}>
             <div style={{ borderLeft: `1.5px solid ${t.border}`, paddingLeft: 14 }}>
               <ErrorBadge error={err} t={t} />
             </div>

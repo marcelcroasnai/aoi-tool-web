@@ -22,8 +22,9 @@ export function BaugrupeRow({ bg, index, t, tr, onOpenViewer, forceExpandBg, sty
   const cTop = bg.cad_top_count      ?? 0;
 
   const sevColor = styles.sevColor(bg.row_color);
-  const dot      = bg.bg_color || sevColor;          // keep AP color as a marker dot
-  const rowBg    = styles.zebra(index);
+  const dot      = bg.aoi_color || sevColor;         // AOI-plan color marker
+  // BG header line is tinted with its AP bg_color; fall back to zebra striping.
+  const rowBg    = bg.bg_color ? withAlpha(bg.bg_color, 0.22) : styles.zebra(index);
 
   // Rail + Nr cell, shared by every row in this BG group (BG, errors, PP rows)
   const railCell = (showNum) => (
@@ -58,12 +59,15 @@ export function BaugrupeRow({ bg, index, t, tr, onOpenViewer, forceExpandBg, sty
         {/* Assembly + project subtitle */}
         <td style={styles.cell}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: dot }} />
+            <span style={{ width: 12, height: 12, borderRadius: "50%", flexShrink: 0, background: dot }} />
             <span style={{ ...styles.mono, fontWeight: 700, fontSize: styles.dense ? 14 : 15, color: t.text }}>
               {bg.name}
             </span>
             {bg.smd_line && <Chip label={`SMD ${bg.smd_line}`} t={t} />}
             {hasPpData    && <Chip label={`${ppList.length} PP`} t={t} />}
+            {bg.dmc              && <Chip label="DMC"  color="#38bdf8" t={t} />}
+            {bg.medi             && <Chip label="MEDI" color="#a78bfa" t={t} />}
+            {bg.locked === "yes" && <Chip label="🔒"   color="#ef4444" t={t} />}
             {isUrgent     && <Chip label="⏱" color="#f59e0b" t={t} title="eilig" />}
             {hasPpData && (
               <span style={{ marginLeft: "auto", color: t.textMuted, fontSize: 12 }}>
@@ -88,15 +92,6 @@ export function BaugrupeRow({ bg, index, t, tr, onOpenViewer, forceExpandBg, sty
           <CompCell iBot={iBot} iTop={iTop} cBot={cBot} cTop={cTop} t={t} />
         </td>
 
-        {/* Flags */}
-        <td style={{ ...styles.cell, width: 110 }}>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {bg.dmc              && <Chip label="DMC"  color="#38bdf8" t={t} />}
-            {bg.medi             && <Chip label="MEDI" color="#a78bfa" t={t} />}
-            {bg.locked === "yes" && <Chip label="🔒"   color="#ef4444" t={t} />}
-          </div>
-        </td>
-
         {/* Status */}
         <td style={{ ...styles.cell, width: 90, textAlign: "right" }}>
           <StatusPill rowColor={bg.row_color} count={totalErr} t={t} />
@@ -107,7 +102,7 @@ export function BaugrupeRow({ bg, index, t, tr, onOpenViewer, forceExpandBg, sty
       {hasBgErrors && bg.bg_errors.map((err, i) => (
         <tr key={`bgerr-${i}`} style={{ background: withAlpha(sevColor, 0.06) }}>
           {railCell(false)}
-          <td colSpan={5} style={{ padding: errPad }}>
+          <td colSpan={4} style={{ padding: errPad }}>
             <ErrorBadge error={err} t={t} />
           </td>
         </tr>
