@@ -23,6 +23,7 @@ import { IdeasPanel }            from "./components/IdeasPanel.jsx";
 import { SyncBar }               from "./components/SyncBar.jsx";
 import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
 import { Login, ChangePassword } from "./components/Login.jsx";
+import { UsersPanel }            from "./components/UsersPanel.jsx";
 
 
 function AppInner() {
@@ -213,7 +214,8 @@ function AppInner() {
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: t.textMuted, textTransform: "uppercase", padding: "0 4px", marginBottom: 2 }}>
               Menu
             </div>
-            {[["inspection", tr.tabInspection], ["search", tr.tabSearch]].map(([key, label]) => {
+            {[["inspection", tr.tabInspection], ["search", tr.tabSearch],
+              ...(can("users.manage") ? [["users", tr.tabUsers]] : [])].map(([key, label]) => {
               const active = tab === key;
               return (
                 <button key={key} onClick={() => setTab(key)} style={{
@@ -245,7 +247,7 @@ function AppInner() {
                 {lastTime}{duration > 0 ? ` (${duration}s)` : ""}
               </span>
             )}
-            {can("ideas.view") && (
+            {can("ideas.edit") && (
             <button
               onClick={() => setIdeasOpen(true)}
               style={{
@@ -359,6 +361,8 @@ function AppInner() {
           <div style={{ maxWidth: 1700, margin: "0 auto", padding: "16px 24px" }}>
 
             {tab === "search" && <SearchPmTab t={t} tr={tr} />}
+
+            {tab === "users" && can("users.manage") && <UsersPanel t={t} tr={tr} />}
 
             {tab === "inspection" && (
               <>

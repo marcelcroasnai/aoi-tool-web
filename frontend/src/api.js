@@ -178,6 +178,28 @@ export async function postSyncRun(syncType) {
   return jsonOrThrow(await apiFetch(`/api/sync/run?sync_type=${syncType}`, { method: "POST" }));
 }
 
+// ─── Ideas ────────────────────────────────────────────────────────────────────
+export async function fetchIdeas() {
+  return jsonOrThrow(await apiFetch("/api/ideas"));
+}
+export async function addIdea(payload) {
+  return jsonOrThrow(await apiFetch("/api/ideas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }));
+}
+export async function setIdeaDone(nr, done) {
+  return jsonOrThrow(await apiFetch(`/api/ideas/${nr}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ done }),
+  }));
+}
+export async function deleteIdea(nr) {
+  return jsonOrThrow(await apiFetch(`/api/ideas/${nr}`, { method: "DELETE" }));
+}
+
 // ─── Image URLs (these load via <img>, so they stay token-free / open) ──────────
 export function haranImageUrl(ppName) {
   return `${API_BASE}/api/image/${encodeURIComponent(ppName)}?type=hr`;

@@ -150,51 +150,119 @@ class StatusResponse(BaseModel):
 # ─── Info endpoints ───────────────────────────────────────────────────────────
 
 
-@app.get("/api/ideas", tags=["Ideas"])
-def get_ideas(_u: dict = Depends(auth.require("ideas.view"))):
-    """Return all ideas from JSON file."""
+def _load_ideas_raw() -> list:
     path = _ideas_path()
     if not os.path.exists(path):
-        return {"ideas": []}
+        return []
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return {"ideas": json.load(f)}
+            data = json.load(f)
+        return data if isinstance(data, list) else []
     except Exception as e:
         logger.error(f"Error reading ideas: {e}")
         raise HTTPException(500, "Could not read ideas file")
 
-@app.post("/api/ideas", tags=["Ideas"])
-def add_idea(idea: IdeaIn, _u: dict = Depends(auth.require("ideas.edit"))):
-    """Add a new idea to the JSON file."""
+
+def _write_ideas(ideas: list) -> None:
     path = _ideas_path()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-
-    ideas = []
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                ideas = json.load(f)
-        except Exception:
-            ideas = []
-
-    new_idea = {
-        "id":         int(time.time() * 1000),
-        "user":       idea.user.strip(),
-        "short_desc": idea.short_desc.strip(),
-        "long_desc":  idea.long_desc.strip(),
-        "added_at":   time.strftime("%Y-%m-%d %H:%M", time.localtime()),
-        "solved_at":  None,
-    }
-    ideas.insert(0, new_idea)   # newest first
-
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(ideas, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.error(f"Error saving idea: {e}")
-        raise HTTPException(500, "Could not save idea")
+        logger.error(f"Error saving ideas: {e}")
+        raise HTTPException(500, "Could not save ideas")
 
+
+def _normalize_ideas(ideas: list):
+    """Ensure every idea has a sequential `nr`, a `done` flag and an `author`."""
+    nums = [i["nr"] for i in ideas if isinstance(i.get("nr"), int)]
+    nxt = (max(nums) + 1) if nums else 1
+    changed = False
+    for idea in reversed(ideas):          # oldest first (list is stored newest-first)
+        if not isinstance(idea.get("nr"), int):
+            idea["nr"] = nxt; nxt += 1; changed = True
+        if "done" not in idea:
+            idea["done"] = bool(idea.get("solved_at")); changed = True
+        if "author" not in idea:
+            idea["author"] = idea.get("user", ""); changed = True
+    return ideas, changed
+
+
+def _get_ideas_normalized() -> list:
+    ideas = _load_ideas_raw()
+    ideas, changed = _normalize_ideas(ideas)
+    if changed:
+        _write_ideas(ideas)
+    return ideas
+
+
+@app.get("/api/ideas", tags=["Ideas"])
+def get_ideas(user: dict = Depends(auth.current_user)):
+    """
+    List ideas. Users with `ideas.view` see all ideas; everyone else
+    (e.g. visitors) sees only their own submissions.
+    """
+    ideas = _get_ideas_normalized()
+    can_view_all = "ideas.view" in user["permissions"]
+    if not can_view_all:
+        ideas = [i for i in ideas if i.get("author") == user["username"]]
+    return {
+        "ideas":        ideas,
+        "can_view_all": can_view_all,
+        "can_manage":   "ideas.manage" in user["permissions"],
+    }
+
+
+@app.post("/api/ideas", tags=["Ideas"])
+def add_idea(idea: IdeaIn, user: dict = Depends(auth.require("ideas.edit"))):
+    """Add a new idea. The author is recorded from the authenticated user."""
+    ideas = _get_ideas_normalized()
+    nums = [i["nr"] for i in ideas if isinstance(i.get("nr"), int)]
+    new_idea = {
+        "nr":         (max(nums) + 1) if nums else 1,
+        "id":         int(time.time() * 1000),
+        "author":     user["username"],
+        "user":       (idea.user or user["username"]).strip(),
+        "short_desc": idea.short_desc.strip(),
+        "long_desc":  (idea.long_desc or "").strip(),
+        "added_at":   time.strftime("%Y-%m-%d %H:%M", time.localtime()),
+        "done":       False,
+        "solved_at":  None,
+    }
+    ideas.insert(0, new_idea)   # newest first
+    _write_ideas(ideas)
     return {"message": "Idea saved", "idea": new_idea}
+
+
+class IdeaDoneIn(BaseModel):
+    done: bool = True
+
+
+@app.patch("/api/ideas/{nr}", tags=["Ideas"])
+def set_idea_done(nr: int, body: IdeaDoneIn,
+                  _u: dict = Depends(auth.require("ideas.manage"))):
+    """Mark an idea done / not done (admin only)."""
+    ideas = _get_ideas_normalized()
+    for idea in ideas:
+        if idea.get("nr") == nr:
+            idea["done"] = bool(body.done)
+            idea["solved_at"] = (time.strftime("%Y-%m-%d %H:%M", time.localtime())
+                                 if body.done else None)
+            _write_ideas(ideas)
+            return {"message": "updated", "idea": idea}
+    raise HTTPException(404, f"Idea #{nr} not found")
+
+
+@app.delete("/api/ideas/{nr}", tags=["Ideas"])
+def delete_idea(nr: int, _u: dict = Depends(auth.require("ideas.manage"))):
+    """Delete an idea (admin only)."""
+    ideas = _get_ideas_normalized()
+    remaining = [i for i in ideas if i.get("nr") != nr]
+    if len(remaining) == len(ideas):
+        raise HTTPException(404, f"Idea #{nr} not found")
+    _write_ideas(remaining)
+    return {"message": f"Idea #{nr} deleted"}
 
 def _ideas_path() -> str:
     from modules.app_context import get_ctx

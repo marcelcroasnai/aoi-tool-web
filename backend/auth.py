@@ -42,8 +42,9 @@ PERMISSIONS: tuple[str, ...] = (
     "ap.refresh",       # trigger AP refresh from intranet
     "sync.run",         # manual PP+CLI / AP sync
     "search.pm",        # PM search tab
-    "ideas.view",       # read the ideas panel
-    "ideas.edit",       # add ideas
+    "ideas.view",       # see ALL ideas (not just your own)
+    "ideas.edit",       # submit a new idea
+    "ideas.manage",     # mark ideas done / delete  (admin)
     "mode.switch",      # toggle live / test mode
     "users.manage",     # create / edit / delete users  (admin only)
 )
@@ -54,11 +55,15 @@ ROLES: tuple[str, ...] = ("admin", "aoiteam", "visitor")
 # admin can never strip their own users.manage and lock everyone out.
 _ADMIN_PERMS = set(PERMISSIONS)
 
-# Default permission sets for the editable roles. At launch everyone may use
-# every functionality except creating users.
+# Default permission sets for the editable roles.
+#   aoiteam : everything except user- and idea-management
+#   visitor : may submit ideas but not see others' (no ideas.view), and no
+#             user- or idea-management
+_AOITEAM_EXCLUDE = {"users.manage", "ideas.manage"}
+_VISITOR_EXCLUDE = {"users.manage", "ideas.manage", "ideas.view"}
 _DEFAULT_ROLE_PERMS: dict[str, list[str]] = {
-    "aoiteam": [p for p in PERMISSIONS if p != "users.manage"],
-    "visitor": [p for p in PERMISSIONS if p != "users.manage"],
+    "aoiteam": [p for p in PERMISSIONS if p not in _AOITEAM_EXCLUDE],
+    "visitor": [p for p in PERMISSIONS if p not in _VISITOR_EXCLUDE],
 }
 
 DEFAULT_ADMIN_USER = "admin"
