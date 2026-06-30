@@ -12,11 +12,12 @@ Documentație API:        http://<ip>:8000/docs
 import logging
 import time
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from models import BaugrupeSummary, InspectionResponse
+import auth
 from modules.pipeline import (
     run_inspection_ap,
     run_inspection_vb,
@@ -150,7 +151,7 @@ class StatusResponse(BaseModel):
 
 
 @app.get("/api/ideas", tags=["Ideas"])
-def get_ideas():
+def get_ideas(_u: dict = Depends(auth.require("ideas.view"))):
     """Return all ideas from JSON file."""
     path = _ideas_path()
     if not os.path.exists(path):
@@ -163,7 +164,7 @@ def get_ideas():
         raise HTTPException(500, "Could not read ideas file")
 
 @app.post("/api/ideas", tags=["Ideas"])
-def add_idea(idea: IdeaIn):
+def add_idea(idea: IdeaIn, _u: dict = Depends(auth.require("ideas.edit"))):
     """Add a new idea to the JSON file."""
     path = _ideas_path()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -200,7 +201,7 @@ def _ideas_path() -> str:
     return get_ctx().ideas_file
 
 @app.get("/api/files/ideas", tags=["Files"])
-def get_ideas_file():
+def get_ideas_file(_u: dict = Depends(auth.require("ideas.view"))):
     """Download the improvement ideas Excel file."""
     import os
     from fastapi.responses import FileResponse
@@ -240,7 +241,7 @@ def get_status():
 
 
 @app.get("/api/mode", tags=["Info"])
-def get_current_mode():
+def get_current_mode(_u: dict = Depends(auth.current_user)):
     """Return current mode (live/test) and active paths."""
     from modules.app_context import get_mode, get_ctx
     ctx = get_ctx()
@@ -257,7 +258,7 @@ def get_current_mode():
 
 
 @app.post("/api/mode/{mode}", tags=["Info"])
-def set_mode(mode: str):
+def set_mode(mode: str, _u: dict = Depends(auth.require("mode.switch"))):
     """Switch mode: live or test. Clears inspection cache and PP list."""
     from modules.app_context import set_mode as _set
     from modules.pp_inspect import refresh_pp_list
@@ -274,7 +275,7 @@ def set_mode(mode: str):
 # ─── PP list ──────────────────────────────────────────────────────────────────
 
 @app.post("/api/pp-list/refresh", tags=["Info"])
-def refresh_pp_list_endpoint():
+def refresh_pp_list_endpoint(_u: dict = Depends(auth.require("sync.run"))):
     """
     Rescan CadRuest folder and rebuild the in-memory PP list.
     Call this after new test programs are added to the server.
@@ -293,7 +294,7 @@ def refresh_pp_list_endpoint():
 # ─── Inspection endpoints ─────────────────────────────────────────────────────
 
 @app.get("/api/inspect/ap", response_model=InspectionResponse, tags=["Inspection"])
-def inspect_ap(force: bool = False):
+def inspect_ap(force: bool = False, _u: dict = Depends(auth.require("inspection.run"))):
     """
     Run Auftragsplan (AP) inspection.
     Use force=true to bypass the 2-minute cache.
@@ -335,7 +336,7 @@ def inspect_ap(force: bool = False):
 
 
 @app.get("/api/inspect/vb", response_model=InspectionResponse, tags=["Inspection"])
-def inspect_vb(force: bool = False):
+def inspect_vb(force: bool = False, _u: dict = Depends(auth.require("inspection.run"))):
     """
     Run Vorbereitung (VB) inspection.
     Use force=true to bypass the 2-minute cache.
@@ -377,7 +378,7 @@ def inspect_vb(force: bool = False):
 
 
 @app.post("/api/inspect/text", response_model=InspectionResponse, tags=["Inspection"])
-def inspect_text(body: dict):
+def inspect_text(body: dict, _u: dict = Depends(auth.require("inspection.run"))):
     """
     Inspect manually entered BG or PP names.
     Body: { "text": "8009917.04\\n8009918_04BOT_ROT\\n..." }
@@ -455,7 +456,7 @@ def get_lp_image(path: str):
 # ─── Search PM endpoints ──────────────────────────────────────────────────────
 
 @app.get("/api/search/pm", tags=["Search PM"])
-def search_pm(q: str = "", search_type: str = "contains", cli: str = "all"):
+def search_pm(q: str = "", search_type: str = "contains", cli: str = "all", _u: dict = Depends(auth.require("search.pm"))):
     """Search Prüfmerkmale across all PP in CadRuest."""
     from modules.search_pm import search_pm as _search
     valid = ("exact", "contains", "starts_with", "ends_with")
@@ -465,7 +466,7 @@ def search_pm(q: str = "", search_type: str = "contains", cli: str = "all"):
 
 
 @app.get("/api/search/cli-list", tags=["Search PM"])
-def get_cli_list():
+def get_cli_list(_u: dict = Depends(auth.require("search.pm"))):
     """Return unique CLI values across all PP in CadRuest."""
     from modules.search_pm import get_cli_list as _cli
     return {"cli_list": _cli()}
@@ -474,14 +475,14 @@ def get_cli_list():
 # ─── Sync ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/sync/status", tags=["Sync"])
-def sync_status():
+def sync_status(_u: dict = Depends(auth.current_user)):
     """Return the last sync result for each sync type + any currently running syncs."""
     from db.sync_log import get_sync_status
     return get_sync_status()
 
 
 @app.post("/api/sync/run", tags=["Sync"])
-def sync_run(sync_type: str = "full", background_tasks: BackgroundTasks = None):
+def sync_run(sync_type: str = "full", background_tasks: BackgroundTasks = None, _u: dict = Depends(auth.require("sync.run"))):
     """
     Trigger a sync run in the background.
     sync_type: 'full' | 'pp' | 'cli' | 'pm_type' | 'ap'
@@ -495,7 +496,7 @@ def sync_run(sync_type: str = "full", background_tasks: BackgroundTasks = None):
 
 
 @app.get("/api/ap/refresh", tags=["Inspection"])
-def ap_refresh_stream():
+def ap_refresh_stream(_u: dict = Depends(auth.require_flex("ap.refresh"))):
     """
     Stream AP refresh progress via Server-Sent Events.
     Checks PP file mtimes vs DB, updates changed PP, regenerates errors.
@@ -516,7 +517,7 @@ def ap_refresh_stream():
 # ─── DB-backed AP endpoint ────────────────────────────────────────────────────
 
 @app.get("/api/ap", tags=["Inspection"])
-def get_ap_from_db():
+def get_ap_from_db(_u: dict = Depends(auth.require("inspection.run"))):
     """
     Return the last AP inspection result built from DB.
     Populated by POST /api/sync/run?sync_type=ap.
@@ -536,7 +537,7 @@ def get_ap_from_db():
 # ─── Cache management ─────────────────────────────────────────────────────────
 
 @app.post("/api/cache/clear", tags=["Admin"])
-def clear_inspection_cache():
+def clear_inspection_cache(_u: dict = Depends(auth.require("users.manage"))):
     """Clear the in-memory inspection results cache (AP/VB)."""
     for key in _cache:
         _cache[key]["data"]      = None
@@ -545,14 +546,14 @@ def clear_inspection_cache():
 
 
 @app.get("/api/cache/file-stats", tags=["Admin"])
-def file_cache_stats():
+def file_cache_stats(_u: dict = Depends(auth.require("users.manage"))):
     """Return file cache statistics (L1 memory + L2 disk)."""
     from modules.file_cache import stats
     return stats()
 
 
 @app.post("/api/cache/file-flush", tags=["Admin"])
-def file_cache_flush():
+def file_cache_flush(_u: dict = Depends(auth.require("users.manage"))):
     """Force write of file cache from memory to disk."""
     from modules.file_cache import flush_to_disk
     flush_to_disk()
@@ -560,11 +561,107 @@ def file_cache_flush():
 
 
 @app.post("/api/cache/file-clear", tags=["Admin"])
-def file_cache_clear():
+def file_cache_clear(_u: dict = Depends(auth.require("users.manage"))):
     """Clear file cache completely (memory + disk)."""
     from modules.file_cache import clear as fc_clear
     fc_clear()
     return {"message": "File cache cleared"}
+
+
+# ─── Auth endpoints ───────────────────────────────────────────────────────────
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+class ChangePwIn(BaseModel):
+    old_password: str
+    new_password: str
+
+class UserCreateIn(BaseModel):
+    username: str
+    password: str
+    role:     str
+
+class UserUpdateIn(BaseModel):
+    role:     Optional[str] = None
+    password: Optional[str] = None
+
+class RolePermsIn(BaseModel):
+    permissions: list[str]
+
+
+@app.post("/api/auth/login", tags=["Auth"])
+def auth_login(body: LoginIn):
+    user = auth.authenticate(body.username, body.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = auth.make_token(user["username"], user["role"])
+    return {"token": token, "user": user}
+
+
+@app.get("/api/auth/me", tags=["Auth"])
+def auth_me(user: dict = Depends(auth.current_user)):
+    return {
+        "username":       user["username"],
+        "role":           user["role"],
+        "permissions":    sorted(user["permissions"]),
+        "must_change_pw": user["must_change_pw"],
+    }
+
+
+@app.post("/api/auth/change-password", tags=["Auth"])
+def auth_change_password(body: ChangePwIn, user: dict = Depends(auth.current_user)):
+    try:
+        auth.change_password(user["username"], body.old_password, body.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Password changed"}
+
+
+@app.get("/api/auth/users", tags=["Auth"])
+def auth_list_users(_: dict = Depends(auth.require("users.manage"))):
+    return {"users": auth.list_users()}
+
+
+@app.post("/api/auth/users", tags=["Auth"])
+def auth_create_user(body: UserCreateIn, _: dict = Depends(auth.require("users.manage"))):
+    try:
+        return auth.create_user(body.username, body.password, body.role)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/auth/users/{username}", tags=["Auth"])
+def auth_update_user(username: str, body: UserUpdateIn,
+                     _: dict = Depends(auth.require("users.manage"))):
+    try:
+        return auth.update_user(username, role=body.role, password=body.password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/auth/users/{username}", tags=["Auth"])
+def auth_delete_user(username: str, user: dict = Depends(auth.require("users.manage"))):
+    try:
+        auth.delete_user(username, acting_user=user["username"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": f"User '{username}' deleted"}
+
+
+@app.get("/api/auth/permissions", tags=["Auth"])
+def auth_permissions(_: dict = Depends(auth.require("users.manage"))):
+    return {"registry": list(auth.PERMISSIONS), "roles": auth.role_permissions()}
+
+
+@app.put("/api/auth/roles/{role}/permissions", tags=["Auth"])
+def auth_set_role_permissions(role: str, body: RolePermsIn,
+                              _: dict = Depends(auth.require("users.manage"))):
+    try:
+        return {"roles": auth.set_role_permissions(role, body.permissions)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.on_event("startup")
@@ -586,6 +683,9 @@ def on_startup():
         logger.info(f"Startup: cleared {stale} stale 'running' sync_log entries")
     from modules.errors import load_error_registry
     load_error_registry()
+    # Auth: create the default super user on first run (idempotent)
+    import auth
+    auth.ensure_default_admin()
 
 @app.on_event("shutdown")
 def on_shutdown():

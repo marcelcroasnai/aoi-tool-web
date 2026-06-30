@@ -21,9 +21,13 @@ import { InspectionTable }       from "./components/InspectionTable.jsx";
 import { SearchPmTab }           from "./components/SearchPmTab.jsx";
 import { IdeasPanel }            from "./components/IdeasPanel.jsx";
 import { SyncBar }               from "./components/SyncBar.jsx";
+import { AuthProvider, useAuth } from "./components/AuthContext.jsx";
+import { Login, ChangePassword } from "./components/Login.jsx";
 
 
-export default function App() {
+function AppInner() {
+  const { user, loading: authLoading, logout, can } = useAuth();
+
   const [isDark,       setIsDark]       = useState(false);
   const [lang,         setLang]         = useState("de");
   const [appMode,      setAppMode]      = useState("live");
@@ -51,6 +55,7 @@ export default function App() {
   const SIDEBAR_W   = 232;
 
   const [ideasOpen, setIdeasOpen] = useState(false);
+  const [pwOpen,    setPwOpen]    = useState(false);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -120,6 +125,25 @@ export default function App() {
   const openViewer  = useCallback((mode, images) => setViewer({ mode, images }), []);
   const closeViewer = useCallback(() => setViewer(null), []);
 
+  // ── Auth gate ───────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: t.bg, color: t.textMuted, fontFamily: "'IBM Plex Sans'",
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: "50%",
+          border: `3px solid ${t.border}`, borderTopColor: "#38bdf8",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+  if (!user) return <Login t={t} tr={tr} />;
+  if (user.must_change_pw) return <ChangePassword t={t} tr={tr} forced onDone={() => {}} />;
+
   return (
     <div style={{
       background: t.bg, color: t.text,
@@ -147,6 +171,13 @@ export default function App() {
         />
       )}
       {ideasOpen && <IdeasPanel t={t} tr={tr} onClose={() => setIdeasOpen(false)} />}
+      {pwOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
+          <ChangePassword t={t} tr={tr}
+            onCancel={() => setPwOpen(false)}
+            onDone={() => setPwOpen(false)} />
+        </div>
+      )}
 
       {/* ── App shell: left sidebar + main ── */}
       <div style={{ display: "flex", minHeight: `calc(100vh / ${ZOOM})` }}>
@@ -214,6 +245,7 @@ export default function App() {
                 {lastTime}{duration > 0 ? ` (${duration}s)` : ""}
               </span>
             )}
+            {can("ideas.view") && (
             <button
               onClick={() => setIdeasOpen(true)}
               style={{
@@ -229,6 +261,7 @@ export default function App() {
             >
               💡 Ideas
             </button>
+            )}
           </div>
 
           <div style={{ height: 1, background: t.border }} />
@@ -252,6 +285,7 @@ export default function App() {
             </div>
 
             {/* Live / Test — full width */}
+            {can("mode.switch") && (
             <div style={{
               display: "flex", alignItems: "center", width: "100%",
               borderRadius: 20, overflow: "hidden",
@@ -281,6 +315,41 @@ export default function App() {
                   </button>
                 );
               })}
+            </div>
+            )}
+          </div>
+
+          {/* Account */}
+          <div style={{ height: 1, background: t.border }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", flexShrink: 0,
+                             boxShadow: "0 0 6px #22c55e" }} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text,
+                              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {user.username}
+                </div>
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8, whiteSpace: "nowrap",
+                background: t.tabActive.bg, color: t.tabActive.color,
+              }}>
+                {user.role === "admin" ? tr.roleAdmin
+                  : user.role === "aoiteam" ? tr.roleAoiteam : tr.roleVisitor}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setPwOpen(true)} style={{
+                flex: 1, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+                border: `1px solid ${t.border}`, background: "transparent", color: t.textMuted,
+                fontSize: 11, fontWeight: 600, fontFamily: "'IBM Plex Sans'",
+              }}>{tr.authChangeTitle}</button>
+              <button onClick={logout} style={{
+                flex: 1, padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+                border: `1px solid ${t.rowColors.red.border}55`, background: "transparent",
+                color: t.rowColors.red.text, fontSize: 11, fontWeight: 700, fontFamily: "'IBM Plex Sans'",
+              }}>{tr.authLogout}</button>
             </div>
           </div>
         </aside>
@@ -316,5 +385,13 @@ export default function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }

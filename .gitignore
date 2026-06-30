@@ -59,6 +59,12 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
+# Auth: hashed credentials store + JWT signing secret — never commit
+auth_users.json
+backend/auth_users.json
+.jwt_secret
+backend/.jwt_secret
+
 # ─── Local working copies / backups ──────────────────────────────────────────
 *[Kk]opie*
 *copy*

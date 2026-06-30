@@ -42,6 +42,18 @@ KUNDE_CSV_FILE        = os.environ.get("AOI_KUNDE_CSV",
                             os.path.join(PROJECT_ROOT, "Docs/kunde_names.csv"))
 
 
+# ─── Auth ─────────────────────────────────────────────────────────────────────
+# Credentials are stored hashed in a JSON file, separate from the inspection DB
+# (which is truncated/rebuilt on every sync). Both files must be gitignored.
+AUTH_FILE        = os.environ.get("AOI_AUTH_FILE",
+                            os.path.join(PROJECT_ROOT, "auth_users.json"))
+# Persistent JWT signing secret. Prefer the AOI_JWT_SECRET env var; if unset,
+# auth.py reads/creates this file so tokens survive server restarts.
+JWT_SECRET_FILE  = os.environ.get("AOI_JWT_SECRET_FILE",
+                            os.path.join(PROJECT_ROOT, ".jwt_secret"))
+JWT_TTL_SECONDS  = int(os.environ.get("AOI_JWT_TTL", str(8 * 3600)))   # 8h
+
+
 # ─── Intranet ─────────────────────────────────────────────────────────────────────
 AP_URL = os.environ.get(
     "AOI_AP_URL",
