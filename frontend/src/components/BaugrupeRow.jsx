@@ -65,7 +65,7 @@ export function BaugrupeRow({ bg, index, t, tr, onOpenViewer, forceExpandBg, sty
             </span>
             {bg.smd_line && <Chip label={`SMD ${bg.smd_line}`} t={t} />}
             {hasPpData    && <Chip label={`${ppList.length} PP`} t={t} />}
-            {bg.dmc              && <Chip label="DMC"  color="#38bdf8" t={t} />}
+            {!bg.dmc             && <Chip label="No DMC" color="#f59e0b" t={t} title="Keine DMC-Markierung an dieser Baugruppe" />}
             {bg.medi             && <Chip label="MEDI" color="#a78bfa" t={t} />}
             {bg.locked === "yes" && <Chip label="🔒"   color="#ef4444" t={t} />}
             {isUrgent     && <Chip label="⏱" color="#f59e0b" t={t} title="eilig" />}

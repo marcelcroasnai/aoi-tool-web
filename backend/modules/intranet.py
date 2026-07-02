@@ -214,7 +214,7 @@ def _parse_pl_file(
 
     if not os.path.exists(pl_file):
         errors.append(make_error(bg_name, "Error_72", f"pl.txt not found: {pl_file}"))
-        return False, "", None, False, False, None, [], [], errors
+        return False, "", None, False, False, None, {}, {}, errors
 
     # Cache format: [active, kunde, project_name, dmc, medi, lp_nr, bot, top]
     cached = get(pl_file)
@@ -231,7 +231,7 @@ def _parse_pl_file(
     except Exception as e:
         logger.error(f"Error reading pl.txt {pl_file}: {e}")
         errors.append(make_error(bg_name, "Error_72", f"Cannot read pl.txt: {pl_file}", open_file=pl_file))
-        return False, "", None, False, False, None, [], [], errors
+        return False, "", None, False, False, None, {}, {}, errors
 
     active        = True
     kunde         = ""
