@@ -6,11 +6,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    allowedHosts: [
+      'aoi-tool-rpi',
+      'aoi-tool-rpi.ihl',
+      'aoi-tool-rpi.local',
+      'hostname',
+    ],
     proxy: {
-  	'/api': {
-      target:'http://127.0.0.1:57842',
-    	timeout: 60000
-    }
-	}
-  }
+      '/api': {
+        target: 'http://127.0.0.1:57842',
+        timeout: 60000,
+      },
+    },
+  },
 })
